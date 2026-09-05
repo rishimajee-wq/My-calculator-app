@@ -1,4 +1,4 @@
-name: Build Calculator APK
+name: Build Signed Calculator APK
 
 on:
   push:
@@ -26,19 +26,29 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Cordova & Build APK
+      - name: Install Cordova & Build Signed Release APK
         run: |
           npm install -g cordova
-          cordova create calcApp com.example.calc Calculator
+          cordova create calcApp com.rishimajee.calculator Calculator
           cd calcApp
           rm -rf www/*
           cp -r ../index.html www/
           cordova platform add android
-          cordova build android --debug
+          
+          # ডিজিটাল সিকিউরিটি কি তৈরি
+          keytool -genkey -v -keystore my-release-key.keystore -alias my-key-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=Rishi, OU=Apps, O=Personal, L=City, S=State, C=IN"
+          
+          # রিলিজ APK বিল্ড
+          cordova build android --release
+          
+          # APK সাইন করা
+          cd platforms/android/app/build/outputs/apk/release/
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore ../../../../../../my-release-key.keystore -storepass 123456 app-release-unsigned.apk my-key-alias
+          $ANDROID_SDK_ROOT/build-tools/34.0.0/zipalign -v 4 app-release-unsigned.apk Calculator-Signed.apk
 
-      - name: Upload APK
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: Calculator-APK
-          path: calcApp/platforms/android/app/build/outputs/apk/debug/*.apk
+          name: Calculator-Signed-APK
+          path: calcApp/platforms/android/app/build/outputs/apk/release/Calculator-Signed.apk
           
